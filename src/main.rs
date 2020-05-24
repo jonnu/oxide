@@ -31,7 +31,6 @@ fn parse(filename: &str) {
                 }
 
                 if open_h1 {
-                    // open_h1 = false;
                     output.push_str("</h1>\n");
                 }
 
