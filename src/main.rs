@@ -4,6 +4,22 @@ use std::io::{BufRead, BufReader};
 use std::io::Write;
 
 
+fn open_new_tag(tag: &String, stack: &mut Vec<String>) -> String {
+    stack.push(tag.to_string());
+    println!("[ADD] Stack now: {}", stack.join(", "));
+    return format!("<{}>", tag)
+}
+
+fn close_last_tag(stack: &mut Vec<String>) -> Option<String> {
+    if stack.is_empty() {
+        return None
+    }
+
+    let x = Some(String::from(format!("</{}>\n", stack.pop().unwrap())));
+    println!("[DEL] Stack now: {}", stack.join(", "));
+    return x
+}
+
 fn parse(filename: &str) {
 
     let filepath = Path::new(filename);
@@ -13,36 +29,53 @@ fn parse(filename: &str) {
     let mut open_h1: bool = false;
 
     let mut tokens: Vec<String> = Vec::new();
+    let mut tags: Vec<String> = Vec::new();
 
     let reader = BufReader::new(filehndl);
 
     for line in reader.lines() {
 
         let data: String = line.unwrap();
-        let mut first: Vec<char> = data.chars().take(1).collect();
+        let mut first: Vec<char> = data.trim().chars().take(1).collect();
         let mut output = String::new();
         
         match first.pop() {
+            // headings, h1-h6
             Some('#') => {
 
+                // @TODO - fix issue where # deeper in the heading (take it as literal)
+                let finalthorp = data.rfind('#').map(|x| x + 1).unwrap_or(0);
+                if finalthorp > 6 || finalthorp <= 0 {
+                    continue;
+                }
+
+                // @TODO - remove conditionals
                 if open_para {
                     open_para = false;
                     output.push_str("</p>\n\n");
                 }
 
                 if open_h1 {
-                    output.push_str("</h1>\n");
+                    output.push_str(&close_last_tag(&mut tags).unwrap());
                 }
+                
+                let mut tag: String = String::from("h");
+                tag.push_str(&finalthorp.to_string());
+
+                output.push_str(&open_new_tag(&tag, &mut tags));
+                output.push_str(&data[finalthorp..].trim());
 
                 open_h1 = true;
-                output.push_str("<h1>");
-                output.push_str(&data[2..]);
+            },
+            Some('`') => {
+                // @TODO - codeblocks.
             },
             _ => {
 
+                // @TODO - remove conditionals
                 if open_h1 {
                     open_h1 = false;
-                    output.push_str("</h1>\n");
+                    output.push_str(&close_last_tag(&mut tags).unwrap());
                 }
 
                 if !open_para {
